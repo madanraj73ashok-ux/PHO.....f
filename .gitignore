@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+tracker.db
+.DS_Store
+android-companion/.gradle/
+android-companion/build/
+android-companion/app/build/
+android-companion/.idea/
+android-companion/*.iml

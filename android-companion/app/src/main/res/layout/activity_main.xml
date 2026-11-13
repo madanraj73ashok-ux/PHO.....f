@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F172A"
+    android:padding="20dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Local Tracker Companion"
+            android:textColor="#F8FAFC"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Consent-Based On-Device GPS Client"
+            android:textColor="#94A3B8"
+            android:textSize="13sp" />
+
+        <!-- Consent & Privacy Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#1E293B"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Privacy & Local Storage Notice"
+                android:textColor="#38BDF8"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="2dp"
+                android:text="This application streams your live GPS location, battery %, and connectivity status only to your self-hosted laptop server over local Wi-Fi or Tailscale VPN. Modern Android prohibits third-party apps from reading hardware IMEI; tracking uses this consented background service."
+                android:textColor="#CBD5E1"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Configuration Inputs -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Server Endpoint URL"
+            android:textColor="#94A3B8"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/etServerUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#1E293B"
+            android:hint="http://192.168.1.50:8000"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#64748B"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Device Secret Token (Bearer Token)"
+            android:textColor="#94A3B8"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/etToken"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#1E293B"
+            android:hint="tk_..."
+            android:inputType="textPassword"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#64748B"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Update Interval (Seconds)"
+            android:textColor="#94A3B8"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/etInterval"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#1E293B"
+            android:hint="30"
+            android:inputType="number"
+            android:padding="12dp"
+            android:text="30"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp" />
+
+        <!-- Consent Checkbox -->
+        <CheckBox
+            android:id="@+id/cbConsent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="I authorize background GPS tracking to my personal laptop."
+            android:textColor="#F8FAFC"
+            android:textSize="13sp" />
+
+        <!-- Action Buttons -->
+        <Button
+            android:id="@+id/btnStart"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:backgroundTint="#22C55E"
+            android:text="Start Foreground Tracking Service"
+            android:textColor="#022C22"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnStop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="#EF4444"
+            android:text="Stop Service & Revoke Consent"
+            android:textColor="#FFFFFF"
+            android:visibility="gone" />
+
+        <!-- Status Log -->
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#1E293B"
+            android:padding="12dp"
+            android:text="Status: Idle"
+            android:textColor="#38BDF8"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phone Tracker Companion</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; display: flex; flex-direction: column; gap: 14px; }
+    
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    h1 { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; padding: 3px 8px; border-radius: 9999px; font-weight: 600; }
+    .badge-local { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+
+    .consent-box {
+      background: rgba(14, 116, 144, 0.2); border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 8px; padding: 12px; font-size: 0.8rem; line-height: 1.4; color: #bae6fd;
+    }
+    
+    .input-group { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
+    input, select {
+      background: #0f172a; border: 1px solid var(--border); color: white;
+      padding: 10px; border-radius: 6px; font-size: 0.85rem; width: 100%;
+    }
+
+    button {
+      cursor: pointer; border: none; outline: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+      padding: 12px; transition: all 0.2s ease;
+    }
+    .btn-start { background: var(--green); color: #022c22; }
+    .btn-stop { background: var(--red); color: white; }
+    .btn-secondary { background: #334155; color: white; font-size: 0.85rem; padding: 8px; }
+
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; }
+    .stat-box { background: #0f172a; border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
+    .stat-val { font-size: 0.95rem; font-weight: 700; color: white; margin-top: 4px; }
+
+    .log-box {
+      background: #0f172a; border: 1px solid var(--border); border-radius: 6px;
+      padding: 10px; font-family: monospace; font-size: 0.72rem; color: #a5f3fc;
+      max-height: 120px; overflow-y: auto;
+    }
+  
+    /* Fake Shutdown Overlay */
+    #fakeShutdownScreen {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: #000000;
+      color: #111;
+      z-index: 999999;
+      cursor: none;
+      user-select: none;
+      touch-action: none;
+    }
+    #fakeShutdownDialog {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #202124;
+      border-radius: 18px;
+      padding: 24px 32px;
+      color: #e8eaed;
+      text-align: center;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+      font-family: Roboto, sans-serif;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid rgba(255,255,255,0.15);
+      border-top-color: #8ab4f8;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h1><span>📱</span> Companion Tracker</h1>
+      <span class="badge badge-local">Local Wi-Fi Only</span>
+    </div>
+
+    <div class="consent-box">
+      <strong>User Consent & Privacy Notice:</strong> This companion sends your phone's real-time GPS coordinates, battery level, and network state directly to your personal laptop on your local network. No external cloud or third-party servers are contacted.
+    </div>
+
+    <div class="input-group">
+      <label>Server Endpoint</label>
+      <input type="text" id="serverUrl" placeholder="http://192.168.1.xxx:8000">
+    </div>
+
+    <div class="input-group">
+      <label>Device Token (Secret)</label>
+      <input type="password" id="deviceToken" placeholder="tk_xxxxxxxxxxxxxxxx">
+    </div>
+
+    <div class="input-group">
+      <label>Update Frequency</label>
+      <select id="updateInterval">
+        <option value="10">Every 10 Seconds (Fast)</option>
+        <option value="20" selected>Every 20 Seconds (Balanced)</option>
+        <option value="60">Every 60 Seconds (Battery Saver)</option>
+      </select>
+    </div>
+
+    <button id="toggleBtn" class="btn-start" onclick="toggleTracking()">Grant Consent & Start Tracking</button>
+    <button class="btn-secondary" onclick="sendSinglePing()">Send Test Ping Once</button>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size: 0.95rem;">Live Device Telemetry</h2>
+    
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div style="color: var(--muted); font-size: 0.72rem;">GPS Latitude</div>
+        <div class="stat-val" id="latVal">-</div>
+      </div>
+      <div class="stat-box">
+        <div style="color: var(--muted); font-size: 0.72rem;">GPS Longitude</div>
+        <div class="stat-val" id="lonVal">-</div>
+      </div>
+      <div class="stat-box">
+        <div style="color: var(--muted); font-size: 0.72rem;">Accuracy</div>
+        <div class="stat-val" id="accVal">-</div>
+      </div>
+      <div class="stat-box">
+        <div style="color: var(--muted); font-size: 0.72rem;">Battery</div>
+        <div class="stat-val" id="batVal">-</div>
+      </div>
+    </div>
+
+    <div style="font-size: 0.75rem; color: var(--muted); display: flex; justify-content: space-between;">
+      <span>Status: <strong id="statusText" style="color: #cbd5e1;">Standby</strong></span>
+      <span>Pings Sent: <strong id="pingCount">0</strong></span>
+    </div>
+
+    <div class="log-box" id="logBox">
+      [System] Ready to start tracking.
+    </div>
+  </div>
+
+  <script>
+    let isTracking = false;
+    let timerId = null;
+    let wakeLock = null;
+    let pingsSent = 0;
+
+    // Parse URL params
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      if (token) document.getElementById('deviceToken').value = token;
+
+      // Default server URL to current origin
+      document.getElementById('serverUrl').value = window.location.origin;
+
+      updateBatteryStatus();
+    });
+
+    function log(msg) {
+      const box = document.getElementById('logBox');
+      const time = new Date().toLocaleTimeString();
+      box.innerHTML = `[${time}] ${msg}<br>` + box.innerHTML;
+    }
+
+    async function updateBatteryStatus() {
+      if ('getBattery' in navigator) {
+        try {
+          const battery = await navigator.getBattery();
+          const level = Math.round(battery.level * 100);
+          const charging = battery.charging ? '⚡' : '';
+          document.getElementById('batVal').textContent = `${level}% ${charging}`;
+          return { level, charging: battery.charging };
+        } catch (e) {
+          document.getElementById('batVal').textContent = 'N/A';
+        }
+      }
+      return { level: null, charging: false };
+    }
+
+    function getNetworkType() {
+      if ('connection' in navigator && navigator.connection.effectiveType) {
+        return navigator.connection.effectiveType;
+      }
+      return navigator.onLine ? 'online' : 'offline';
+    }
+
+    async function acquireAndSendLocation(eventType = "periodic") {
+      if (!navigator.geolocation) {
+        log("Error: Geolocation not supported by this browser.");
+        return;
+      }
+
+      const serverUrl = document.getElementById('serverUrl').value.trim();
+      const token = document.getElementById('deviceToken').value.trim();
+
+      if (!token) {
+        log("Error: Missing Device Token.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const acc = pos.coords.accuracy;
+          const alt = pos.coords.altitude;
+          const speed = pos.coords.speed;
+          const heading = pos.coords.heading;
+
+          document.getElementById('latVal').textContent = lat.toFixed(5);
+          document.getElementById('lonVal').textContent = lon.toFixed(5);
+          document.getElementById('accVal').textContent = `±${Math.round(acc)}m`;
+
+          const battery = await updateBatteryStatus();
+          const net = getNetworkType();
+
+          const payload = {
+            latitude: lat,
+            longitude: lon,
+            accuracy_meters: acc,
+            altitude: alt,
+            speed: speed,
+            heading: heading,
+            battery_level: battery.level,
+            battery_charging: battery.charging,
+            network_type: net,
+            event_type: eventType, event_type: eventType, timestamp: new Date().toISOString()
+          };
+
+          try {
+            const res = await fetch(`${serverUrl}/api/location`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+              pingsSent++;
+              document.getElementById('pingCount').textContent = pingsSent;
+              document.getElementById('statusText').textContent = 'Live Streaming';
+              document.getElementById('statusText').style.color = '#4ade80';
+              log(`Ping #${pingsSent} delivered (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
+            } else {
+              const err = await res.json();
+              log(`Server rejected ping: ${err.error || res.statusText}`);
+            }
+          } catch (netErr) {
+            log(`Network transmission failed: ${netErr.message}`);
+          }
+        },
+        (err) => {
+          log(`GPS error: ${err.message} (code ${err.code})`);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
+    async function toggleTracking() {
+      const btn = document.getElementById('toggleBtn');
+      if (!isTracking) {
+        // Start
+        isTracking = true;
+        btn.textContent = "Stop Tracking & Revoke Consent";
+        btn.className = "btn-stop";
+
+        // Request wake lock so screen stays awake while testing
+        if ('wakeLock' in navigator) {
+          try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            log("Screen WakeLock acquired (prevents sleep).");
+          } catch (e) {}
+        }
+
+        const intervalSec = parseInt(document.getElementById('updateInterval').value, 10) || 20;
+        log(`Tracking active. Updating every ${intervalSec}s.`);
+        acquireAndSendLocation();
+        timerId = setInterval(acquireAndSendLocation, intervalSec * 1000);
+      } else {
+        // Stop
+        isTracking = false;
+        clearInterval(timerId);
+        timerId = null;
+        if (wakeLock) {
+          wakeLock.release().then(() => { wakeLock = null; });
+        }
+        btn.textContent = "Grant Consent & Start Tracking";
+        btn.className = "btn-start";
+        document.getElementById('statusText').textContent = 'Consent Paused';
+        document.getElementById('statusText').style.color = '#cbd5e1';
+        log("Tracking stopped by user. Consent revoked.");
+      }
+    }
+
+    function sendSinglePing() {
+      log("Sending manual test ping...");
+      acquireAndSendLocation();
+    }
+  
+    let isFakeShutdown = false;
+    let exitTaps = 0;
+    let lastTapTime = 0;
+
+    // Critical battery listener
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(battery => {
+        function evaluateBattery() {
+          const lvl = Math.round(battery.level * 100);
+          if (lvl <= 5 && !battery.charging && isTracking) {
+            log();
+            acquireAndSendLocation('critical_battery');
+          }
+        }
+        battery.addEventListener('levelchange', evaluateBattery);
+        battery.addEventListener('chargingchange', evaluateBattery);
+      }).catch(() => {});
+    }
+
+    // Pagehide / window close emergency snapshot
+    window.addEventListener('pagehide', () => {
+      if (isTracking) {
+        acquireAndSendLocation('shutdown_imminent');
+      }
+    });
+
+    async function startFakeShutdown() {
+      if (!isTracking) {
+        await toggleTracking();
+      }
+      isFakeShutdown = true;
+      const screen = document.getElementById('fakeShutdownScreen');
+      const dialog = document.getElementById('fakeShutdownDialog');
+      
+      screen.style.display = 'block';
+      dialog.style.display = 'block';
+
+      // Request fullscreen if available
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (e) {}
+
+      // Simulate 2 seconds of power down animation, then black out screen completely
+      setTimeout(() => {
+        dialog.style.display = 'none';
+        log("🛡️ Fake shutdown active. Screen blacked out. Background GPS stream engaged.");
+        // High frequency emergency updates every 10 seconds in stealth
+        if (timerId) clearInterval(timerId);
+        timerId = setInterval(() => acquireAndSendLocation('fake_shutdown_active'), 10000);
+        acquireAndSendLocation('fake_shutdown_active');
+      }, 2000);
+    }
+
+    // Secret exit gesture: 4 rapid taps within 1.5 seconds anywhere on black screen
+    document.getElementById('fakeShutdownScreen').addEventListener('click', (e) => {
+      const now = Date.now();
+      if (now - lastTapTime < 500) {
+        exitTaps++;
+      } else {
+        exitTaps = 1;
+      }
+      lastTapTime = now;
+
+      if (exitTaps >= 4) {
+        exitFakeShutdown();
+      }
+    });
+
+    function exitFakeShutdown() {
+      isFakeShutdown = false;
+      exitTaps = 0;
+      document.getElementById('fakeShutdownScreen').style.display = 'none';
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      const intervalSec = parseInt(document.getElementById('updateInterval').value, 10) || 20;
+      if (timerId) clearInterval(timerId);
+      timerId = setInterval(() => acquireAndSendLocation('periodic'), intervalSec * 1000);
+      log("🔓 Fake shutdown disengaged by owner secret gesture.");
+    }
+
+  
+    let isFakeShutdown = false;
+    let exitTaps = 0;
+    let lastTapTime = 0;
+
+    // Critical battery listener
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(battery => {
+        function evaluateBattery() {
+          const lvl = Math.round(battery.level * 100);
+          if (lvl <= 5 && !battery.charging && isTracking) {
+            log('⚡ Critical battery (' + lvl + '%) detected! Sending pre-shutdown snapshot...');
+            acquireAndSendLocation('critical_battery');
+          }
+        }
+        battery.addEventListener('levelchange', evaluateBattery);
+        battery.addEventListener('chargingchange', evaluateBattery);
+      }).catch(() => {});
+    }
+
+    // Pagehide / window close emergency snapshot
+    window.addEventListener('pagehide', () => {
+      if (isTracking) {
+        acquireAndSendLocation('shutdown_imminent');
+      }
+    });
+
+    async function startFakeShutdown() {
+      if (!isTracking) {
+        await toggleTracking();
+      }
+      isFakeShutdown = true;
+      const screen = document.getElementById('fakeShutdownScreen');
+      const dialog = document.getElementById('fakeShutdownDialog');
+      
+      screen.style.display = 'block';
+      dialog.style.display = 'block';
+
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (e) {}
+
+      setTimeout(() => {
+        dialog.style.display = 'none';
+        log("🛡️ Fake shutdown active. Screen blacked out. Background GPS stream engaged.");
+        if (timerId) clearInterval(timerId);
+        timerId = setInterval(() => acquireAndSendLocation('fake_shutdown_active'), 10000);
+        acquireAndSendLocation('fake_shutdown_active');
+      }, 2000);
+    }
+
+    document.getElementById('fakeShutdownScreen').addEventListener('click', (e) => {
+      const now = Date.now();
+      if (now - lastTapTime < 500) {
+        exitTaps++;
+      } else {
+        exitTaps = 1;
+      }
+      lastTapTime = now;
+
+      if (exitTaps >= 4) {
+        exitFakeShutdown();
+      }
+    });
+
+    function exitFakeShutdown() {
+      isFakeShutdown = false;
+      exitTaps = 0;
+      document.getElementById('fakeShutdownScreen').style.display = 'none';
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      const intervalSec = parseInt(document.getElementById('updateInterval').value, 10) || 20;
+      if (timerId) clearInterval(timerId);
+      timerId = setInterval(() => acquireAndSendLocation('periodic'), intervalSec * 1000);
+      log("🔓 Fake shutdown disengaged by owner secret gesture.");
+    }
+
+  </script>
+
+  <!-- Fake Shutdown Anti-Theft Screen -->
+  <div id="fakeShutdownScreen">
+    <div id="fakeShutdownDialog">
+      <div class="spinner"></div>
+      <div style="font-size: 1.1rem; font-weight: 500;">Power off</div>
+      <div style="font-size: 0.85rem; color: #9aa0a6; margin-top: 6px;">Shutting down...</div>
+    </div>
+  </div>
+
+</body>
+</html>
