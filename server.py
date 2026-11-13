@@ -25,7 +25,14 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    global DB_PATH
+    try:
+        conn = sqlite3.connect(DB_PATH)
+    except sqlite3.OperationalError:
+        fallback_dir = os.path.expanduser("~/.local-phone-tracker")
+        os.makedirs(fallback_dir, exist_ok=True)
+        DB_PATH = os.path.join(fallback_dir, "tracker.db")
+        conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
         yield conn

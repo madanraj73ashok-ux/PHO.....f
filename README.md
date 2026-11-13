@@ -2,6 +2,10 @@
 
 A 100% local, privacy-focused phone tracking and recovery system. All device telemetry, GPS coordinates, battery status, and location history are stored strictly in a local SQLite database on your own laptop or local server. Zero third-party cloud backends, zero external database servers, and zero telemetry leakage.
 
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Local-First Phone Tracker Dashboard" width="100%">
+</p>
+
 ---
 
 ## Technical Feasibility & The "Switched-Off Phone / IMEI" Reality
@@ -40,17 +44,24 @@ A 100% local, privacy-focused phone tracking and recovery system. All device tel
 
 ---
 
-## Quickstart Guide
+## Local Server Deployment & Testing Guide
 
-### 1. Prerequisites
-- Python 3.8+ (no third-party Python packages required; uses standard library `http.server` and `sqlite3`).
-- A laptop/PC and an Android phone connected to the same local Wi-Fi (or connected via a private Tailscale / WireGuard mesh).
+### 1. One-Command Server Deployment
+No external dependencies are required. The server uses Python's standard library (`http.server` and `sqlite3`).
 
-### 2. Start the Local Server
 ```bash
-python3 server.py
+# Clone the repository
+git clone https://github.com/madanraj73ashok-ux/PHO.....f.git
+cd PHO.....f
+
+# Deploy and start on default port 8000
+./run_local.sh
+
+# Or run directly via Python (specify custom port if desired):
+python3 server.py 8000
 ```
-By default, the server starts on port `8000`. You will see output like:
+
+When started, your terminal displays:
 ```text
 =================================================================
 LOCAL-FIRST PHONE TRACKER & RECOVERY DASHBOARD RUNNING
@@ -61,47 +72,149 @@ Database File: .../tracker.db
 =================================================================
 ```
 
-### 3. Open the Dashboard & Register a Phone
-1. Open `http://localhost:8000` in your laptop's browser.
-2. Click **"+ Register New Device"**.
-3. Enter your phone's name (e.g. `Madan's Pixel`) and click **Generate Secure Credentials**.
-4. A pairing QR code and unique random Bearer Token will appear.
-
-### 4. Pair Your Phone
-
-#### Option A: Instant Web Companion (No APK installation required)
-1. Open the companion URL on your phone's browser (or scan the QR code):
-   `http://<YOUR_LAPTOP_IP>:8000/mobile.html`
-2. Enter your Device ID and Token (auto-filled if opened from QR).
-3. Tap **"Grant Consent & Start Tracking"** and allow location access.
-4. Your phone is now actively streaming real-time coordinates, battery level, and connectivity status!
-
-#### Option B: Native Android Studio App (Background & Shutdown Service)
-1. Open the `android-companion` directory in Android Studio.
-2. Build and install the APK to your device.
-3. Open **Local Tracker Companion**, paste your laptop IP and token, and tap **"Start Background Service"**.
-4. The background foreground service and `ShutdownReceiver` will maintain tracking even when minimized or when battery is critically low.
+Open **`http://localhost:8000`** in your browser to view the live dashboard.
 
 ---
 
-## API Endpoints
+### 2. Run Automated Verification Tests
+Run the comprehensive 9-point unit test suite that validates server health, device registration, token authentication, location ingestion, simulated offline recovery, pre-shutdown snapshots, and stealth alerts:
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `GET` | `/api/status` | Server health, local IP, and features | No |
-| `POST` | `/api/register` | Registers device, returns unique ID & token | No |
-| `GET` | `/api/devices` | Lists registered devices with live/offline status | No |
-| `POST` | `/api/location` | Ingests GPS, battery, and event telemetry | Bearer Token |
-| `GET` | `/api/devices/{id}/history` | Retrieves location history trail (up to 100 points) | No |
-
----
-
-## Verification & Automated Tests
-
-A comprehensive unit test suite is included to validate registration, unauthorized rejections, telemetry ingestion, offline state preservation, pre-shutdown snapshots, and fake shutdown alerts:
 ```bash
 python3 tests/test_tracker.py
 ```
+
+Expected output:
+```text
+test_01_server_status ... ok
+test_02_device_registration ... ok
+test_03_unauthorized_location_rejected ... ok
+test_04_authorized_location_ingestion ... ok
+test_05_device_status_and_last_known_location ... ok
+test_06_simulated_switched_off_offline_preservation ... ok
+test_07_location_history_trail ... ok
+test_08_critical_battery_pre_shutdown_event ... ok
+test_09_fake_shutdown_active_event ... ok
+
+Ran 9 tests in 0.74s - OK
+```
+
+---
+
+### 3. Instant Telemetry Simulator (Test Without a Physical Phone)
+To test the real-time dashboard and map rendering immediately without an Android phone, run the built-in simulator:
+
+```bash
+# In a separate terminal tab:
+python3 scripts/simulate_device.py
+```
+
+This simulator automatically:
+1. Registers a simulated test phone (`Simulated Pixel 8 Pro`).
+2. Transmits movement GPS coordinates, battery percentage, and Wi-Fi/Cellular telemetry.
+3. Fires a **Critical Battery Pre-Shutdown Snapshot** event (`critical_battery_shutdown`).
+4. Verifies database persistence and updates the dashboard live at `http://localhost:8000`.
+
+---
+
+### 4. Manual Testing via cURL
+
+You can also test the local server API directly via standard HTTP requests:
+
+#### Step A: Register a Device
+```bash
+curl -X POST http://localhost:8000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test Phone", "model": "Pixel 8 Pro", "os_version": "Android 15"}'
+```
+Response:
+```json
+{
+  "message": "Device registered successfully",
+  "device_id": "dev_a1b2c3d4e5f6",
+  "token": "tk_YourSecretBearerTokenHere..."
+}
+```
+
+#### Step B: Send GPS Telemetry
+```bash
+curl -X POST http://localhost:8000/api/location \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer tk_YourSecretBearerTokenHere..." \
+  -d '{
+    "latitude": 37.7749,
+    "longitude": -122.4194,
+    "accuracy": 4.5,
+    "battery_level": 82,
+    "is_charging": false,
+    "network_type": "wifi",
+    "network_name": "Home_Fiber_5G",
+    "event_type": "periodic"
+  }'
+```
+
+#### Step C: Simulate Critical Battery Pre-Shutdown Snapshot
+```bash
+curl -X POST http://localhost:8000/api/location \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer tk_YourSecretBearerTokenHere..." \
+  -d '{
+    "latitude": 37.7788,
+    "longitude": -122.4145,
+    "accuracy": 5.0,
+    "battery_level": 3,
+    "is_charging": false,
+    "network_type": "cellular",
+    "network_name": "LTE",
+    "event_type": "critical_battery_shutdown"
+  }'
+```
+
+#### Step D: Simulate Anti-Theft Fake Shutdown Event
+```bash
+curl -X POST http://localhost:8000/api/location \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer tk_YourSecretBearerTokenHere..." \
+  -d '{
+    "latitude": 37.7810,
+    "longitude": -122.4120,
+    "accuracy": 3.0,
+    "battery_level": 45,
+    "is_charging": false,
+    "network_type": "cellular",
+    "network_name": "5G Ultra",
+    "event_type": "fake_shutdown_active"
+  }'
+```
+
+---
+
+### 5. Pairing a Real Mobile Device
+
+#### Option A: Instant Web Companion (Browser-Based, No Install)
+1. Open the companion URL on your phone's browser (or scan the QR code from the dashboard):
+   `http://<YOUR_LAPTOP_IP>:8000/mobile.html`
+2. Enter your Device ID and Token (auto-filled if opened from QR).
+3. Tap **"Grant Consent & Start Tracking"** and allow browser location permissions.
+4. Your phone is now streaming live coordinates, battery percentage, and network status to your laptop.
+
+#### Option B: Native Android Studio App (Background Service & Broadcast Receiver)
+1. Open the `android-companion` directory in Android Studio.
+2. Build and install the APK to your Android device (`app/src/main`).
+3. Enter your laptop's local server IP and authentication token.
+4. Tap **"Start Background Service"**.
+5. The foreground tracking service and `ShutdownReceiver` will automatically capture pre-shutdown snapshots upon low battery or system shutdown.
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `GET` | `/api/status` | Server health, local IP address, and database status | No |
+| `POST` | `/api/register` | Registers device, returns unique ID & secure token | No |
+| `GET` | `/api/devices` | Lists registered devices with live/offline status and last known location | No |
+| `POST` | `/api/location` | Ingests GPS coordinates, battery, network, and event telemetry | Bearer Token |
+| `GET` | `/api/devices/{id}/history` | Retrieves location history trail (up to 100 points) | No |
 
 ---
 
